@@ -14,12 +14,12 @@ const ShopServiceSchema = new mongoose.Schema({
         type: String
     }],
     commissionCharge: {
-        aeps: { type: Number },
-        dmt: { type: Number },
-        matm: { type: Number },
-        busBooking: { type: Number },
-        flightBooking: { type: Number },
-        hotelBooking: { type: Number }
+        aeps: { type: mongoose.Schema.Types.Decimal128 },
+        dmt: { type: mongoose.Schema.Types.Decimal128 },
+        matm: { type: mongoose.Schema.Types.Decimal128 },
+        busBooking: { type: mongoose.Schema.Types.Decimal128 },
+        flightBooking: { type: mongoose.Schema.Types.Decimal128 },
+        hotelBooking: { type: mongoose.Schema.Types.Decimal128 }
     },
     notProvided: [{
         type: String

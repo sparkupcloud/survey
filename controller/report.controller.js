@@ -159,14 +159,17 @@ exports.getTodayVisit = async (req, res, next) => {
                 $lt: new Date(today.getTime() + 24 * 60 * 60 * 1000),
             },
         })
-            .populate('shopsVisited.shop', 'shopName shopPhoto')
-            .exec();
+            .populate({
+                path: 'shopsVisited.shop',
+                select: 'shopName shopPhoto',
+                populate: {
+                    path: 'service',
+                    model: 'ShopService'
+                }
+            })
+            .lean();
 
-        if (!dailyReport) {
-            return SendError(res, 404, "No visit report found for today.");
-        }
-
-        return SendSuccess(res, dailyReport, "Today's visit report fetched successfully.");
+        return SendSuccess(res, dailyReport, "Today's visit report with shop services fetched successfully.");
     } catch (err) {
         next(err);
     }
@@ -189,6 +192,7 @@ exports.addShopService = async (req, res, next) => {
         }
 
         let shop = await Shop.findById(shopId);
+        console.log('shop: ', shop);
 
         if (!shop) {
             return SendError(res, 404, "Shop not found.");
@@ -205,10 +209,6 @@ exports.addShopService = async (req, res, next) => {
         });
 
         await newService.save();
-
-        shop.services.push(newService._id);
-        await shop.save();
-
         return SendSuccess(res, newService, "Service added successfully.");
     } catch (err) {
         next(err);

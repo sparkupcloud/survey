@@ -34,9 +34,19 @@ const ShopSchema = new mongoose.Schema({
         }
     }
 }, {
-    timestamps: true
+    timestamps: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true }
 });
 
 ShopSchema.index({ location: "2dsphere" });
+
+ShopSchema.virtual('service', {
+    ref: 'ShopService',
+    localField: '_id',
+    foreignField: 'shop',
+    justOne: true
+});
+
 
 module.exports = mongoose.model("Shop", ShopSchema);
