@@ -51,6 +51,7 @@ app.use((req, res, next) => {
 });
 
 app.use((err, req, res, next) => {
+    console.log('err: ', err);
     let message = 'Something went wrong. Please try again later.';
     let status = err.status || 500;
 

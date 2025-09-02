@@ -192,7 +192,6 @@ exports.addShopService = async (req, res, next) => {
         }
 
         let shop = await Shop.findById(shopId);
-        console.log('shop: ', shop);
 
         if (!shop) {
             return SendError(res, 404, "Shop not found.");
@@ -211,6 +210,7 @@ exports.addShopService = async (req, res, next) => {
         await newService.save();
         return SendSuccess(res, newService, "Service added successfully.");
     } catch (err) {
+        console.log('err: ', err);
         next(err);
     }
 };
