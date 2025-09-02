@@ -209,8 +209,9 @@ exports.addShopService = async (req, res, next) => {
 
         await newService.save();
         return SendSuccess(res, newService, "Service added successfully.");
-    } catch (err) {
-        console.log('err: ', err);
-        next(err);
+    } catch (error) {
+        console.log('err: ', error);
+        // next(err);
+        return SendError(res, 500, error.message)
     }
 };
