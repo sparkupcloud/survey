@@ -5,7 +5,6 @@ const { uploadImageToS3 } = require("../utils/helper");
 const { SendError, SendSuccess } = require("../utils/response");
 const ShopService = require("../models/shopService.model");
 
-
 exports.startDailyReport = async (req, res, next) => {
     try {
         const { lat, lng, meterReading } = req.body;
@@ -66,14 +65,20 @@ exports.startDailyReport = async (req, res, next) => {
 
 exports.addShopVisit = async (req, res, next) => {
     try {
-        const { shopName, meterReading, lat, lng, shopAddress, shopType, ownerName, ownerContact, shopContact } = req.body;
+        const {
+            shopName,
+            meterReading,
+            lat,
+            lng,
+            shopAddress,
+            shopType,
+            ownerName,
+            ownerContact,
+            shopContact
+        } = req.body;
 
         if (!shopName || !meterReading || !lat || !lng || !shopAddress || !shopType || !ownerName || !ownerContact) {
             return SendError(res, 400, "All fields (shopName, meterReading, lat, lng) are required.");
-        }
-
-        if (!req.files || !req.files.meterPhoto || !req.files.shopPhoto) {
-            return SendError(res, 400, "Meter photo and shop photo are required.");
         }
 
         let shop = await Shop.findOne({ shopName });
@@ -120,13 +125,16 @@ exports.addShopVisit = async (req, res, next) => {
             return SendError(res, 400, "Shop visit already recorded for this shop today.");
         }
 
-        // const [meterPhotoUrl, shopPhotoUrl] = await Promise.all([
-        //     uploadImageToS3(req.files.meterPhoto[0], req.user._id, "meter-photos"),
-        //     uploadImageToS3(req.files.shopPhoto[0], req.user._id, "shop-photos")
-        // ]);
+        let meterPhotoUrl;
+        let shopPhotoUrl;
 
-        const meterPhotoUrl = await uploadImageToS3(req.files.meterPhoto[0], req.user._id, "meter-photos");
-        const shopPhotoUrl = await uploadImageToS3(req.files.shopPhoto[0], req.user._id, "shop-photos");
+        if (req.files.meterPhoto) {
+            meterPhotoUrl = await uploadImageToS3(req.files.meterPhoto[0], req.user._id, "meter-photos");
+        }
+
+        if (req.files.shopPhoto) {
+            shopPhotoUrl = await uploadImageToS3(req.files.shopPhoto[0], req.user._id, "shop-photos");
+        }
 
         dailyReport.shopsVisited.push({
             shop: shop._id,
@@ -152,7 +160,7 @@ exports.getTodayVisit = async (req, res, next) => {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
-        const dailyReport = await DailyReport.findOne({
+        const dailyReport = await DailyReport.find({
             user: req.user._id,
             date: {
                 $gte: today,
@@ -169,7 +177,13 @@ exports.getTodayVisit = async (req, res, next) => {
             })
             .lean();
 
-        return SendSuccess(res, dailyReport, "Today's visit report with shop services fetched successfully.");
+        if(!dailyReport) {
+            return SendError(res, 400, "No Visit Found For Today");
+        }
+
+        const shopCount = dailyReport?.shopsVisited?.length || 0;
+
+        return SendSuccess(res, { dailyReport, shopCount }, "Today's visit report fetched successfully.");
     } catch (err) {
         next(err);
     }
@@ -184,7 +198,8 @@ exports.addShopService = async (req, res, next) => {
             commissionCharge,
             notProvided,
             expectedService,
-            feedback
+            feedback,
+            volume
         } = req.body;
 
         if (!shopId || !providerName || !serviceProvided || !commissionCharge) {
@@ -204,7 +219,8 @@ exports.addShopService = async (req, res, next) => {
             commissionCharge,
             notProvided,
             expectedService,
-            feedback
+            feedback,
+            volume
         });
 
         await newService.save();

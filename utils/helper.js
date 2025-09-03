@@ -3,6 +3,7 @@ const path = require("path");
 const crypto = require("crypto");
 const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
 const multer = require("multer");
+const upload = multer({ storage: multer.memoryStorage() });
 
 const generateToken = (user) => {
     return jwt.sign(
@@ -19,8 +20,6 @@ const s3 = new S3Client({
         secretAccessKey: process.env.AWS_SECRET_KEY,
     },
 });
-
-const upload = multer({ storage: multer.memoryStorage() });
 
 const uploadImageToS3 = async (file, userId, subFolder = "general") => {
     if (!file) throw new Error("File is required");
@@ -46,5 +45,34 @@ const uploadImageToS3 = async (file, userId, subFolder = "general") => {
     return fileUrl;
 };
 
+const uploadProfile = async (file) => {
+    if (!file) throw new Error("File is required");
 
-module.exports = { generateToken, upload, uploadImageToS3 };
+    const baseFolder = "marketing";
+    const targetFolder = `${baseFolder}/profiles`;
+
+    const ext = path.extname(file.originalname);
+    const fileName = `${crypto.randomUUID()}${ext}`;
+    const key = `${targetFolder}/${fileName}`;
+
+    await s3.send(
+        new PutObjectCommand({
+            Bucket: process.env.S3_BUCKET_NAME,
+            Key: key,
+            Body: file.buffer,
+            ContentType: file.mimetype,
+            ACL: "public-read",
+        })
+    );
+
+    const fileUrl = `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
+    return fileUrl;
+};
+
+
+module.exports = {
+    upload,
+    generateToken,
+    uploadImageToS3,
+    uploadProfile
+};

@@ -29,6 +29,9 @@ const ShopServiceSchema = new mongoose.Schema({
     }],
     feedback: {
         type: String
+    },
+    volume: {
+        type: Number
     }
 }, {
     timestamps: true

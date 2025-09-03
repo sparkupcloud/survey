@@ -1,7 +1,7 @@
 const officeLocationModel = require("../models/officeLocation.model");
 const moment = require("moment");
 const User = require("../models/user.model");
-const { generateToken } = require("../utils/helper");
+const { generateToken, uploadProfile } = require("../utils/helper");
 const { SendError, SendSuccess } = require("../utils/response");
 
 exports.register = async (req, res, next) => {
@@ -20,25 +20,29 @@ exports.register = async (req, res, next) => {
         const office = await officeLocationModel.findOne();
         if (!office) return SendError(res, 500, "Office location not configured");
 
+        const profile = await uploadProfile(req.file);
+
         const user = await User.create({
             name,
             email,
             password,
+            profile,
             office: office._id,
         });
         const payload = {
             user: {
                 id: user._id,
                 name: user.name,
+                profile: profile,
                 email: user.email,
             },
         };
-        return SendSuccess(res, 201, payload);
+        return SendSuccess(res, payload, "User Registered Successfully");
 
     } catch (error) {
         next(error);
     }
-}
+};
 
 exports.login = async (req, res, next) => {
     try {
@@ -52,7 +56,7 @@ exports.login = async (req, res, next) => {
 
         const today = moment().startOf("day");
         const lastLogin = user.lastLoginDate ? moment(user.lastLoginDate).startOf("day") : null;
-
+        //TODO: Need to uncomment this code
         // if (!lastLogin || !today.isSame(lastLogin)) {
         //     // First login of the day requires office location
         //     if (lat == null || lng == null) {
@@ -92,5 +96,19 @@ exports.login = async (req, res, next) => {
         return SendSuccess(res, payload, "Login successful");
     } catch (error) {
         next(error);
+    }
+};
+
+exports.getDataById = async (req, res, next) => {
+    try {
+        const { _id } = req.user;
+        const userData = await User.findById(_id);
+        if(!userData) {
+            return SendError(res, 400, "User Not Found");
+        }
+        userData.password = undefined;
+        return SendSuccess(res, userData, "User Data Fetched Successfully");
+    } catch (error) {
+        return next(error);
     }
 };

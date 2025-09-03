@@ -4,7 +4,6 @@ const { SendError } = require("../utils/response");
 
 exports.authMiddleware = async (req, res, next) => {
     try {
-
         if (req.headers.authorization && req.headers.authorization.startsWith("Bearer")) {
             const token = req.header("Authorization")?.replace("Bearer ", "");
             if (!token) {
@@ -25,6 +24,7 @@ exports.authMiddleware = async (req, res, next) => {
             return SendError(res, 401, "Authorization header missing or incorrect");
         }
     } catch (err) {
+        console.log('err: ', err);
         next(err);
     }
 };
