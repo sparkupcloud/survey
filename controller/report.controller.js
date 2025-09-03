@@ -177,11 +177,11 @@ exports.getTodayVisit = async (req, res, next) => {
             })
             .lean();
 
-        if(!dailyReport) {
+        if(!dailyReport.length) {
             return SendError(res, 400, "No Visit Found For Today");
         }
 
-        const shopCount = dailyReport?.shopsVisited?.length || 0;
+        const shopCount = dailyReport[0]?.shopsVisited?.length || 0;
 
         return SendSuccess(res, { dailyReport, shopCount }, "Today's visit report fetched successfully.");
     } catch (err) {
