@@ -3,50 +3,17 @@ const moment = require("moment");
 const User = require("../models/user.model");
 const { generateToken, uploadProfile } = require("../utils/helper");
 const { SendError, SendSuccess } = require("../utils/response");
-
-exports.register = async (req, res, next) => {
-    try {
-        const { name, email, password } = req.body;
-
-        if (!email || !name || !password) {
-            return SendError(res, 400, "All Fields are Rrequired");
-        }
-
-        const existingUser = await User.findOne({ email });
-        if (existingUser) {
-            return SendError(res, 400, "User already exists");
-        }
-
-        const office = await officeLocationModel.findOne();
-        if (!office) return SendError(res, 500, "Office location not configured");
-
-        const profile = await uploadProfile(req.file);
-
-        const user = await User.create({
-            name,
-            email,
-            password,
-            profile,
-            office: office._id,
-        });
-        const payload = {
-            user: {
-                id: user._id,
-                name: user.name,
-                profile: profile,
-                email: user.email,
-            },
-        };
-        return SendSuccess(res, payload, "User Registered Successfully");
-
-    } catch (error) {
-        next(error);
-    }
-};
+const Attendance = require("../models/attendance.model");
 
 exports.login = async (req, res, next) => {
     try {
         const { email, password, lat, lng } = req.body;
+        const clientIp = (req.headers['x-forwarded-for']?.split(',')[0] || req.socket.remoteAddress || '').replace(/^::ffff:/, '');
+
+        if (lat == null || lng == null) {
+            return SendError(res, 400, "Current location required for login");
+        }
+
 
         const user = await User.findOne({ email });
         if (!user) return SendError(res, 400, "User not registered");
@@ -54,43 +21,54 @@ exports.login = async (req, res, next) => {
         const isMatch = await user.comparePassword(password);
         if (!isMatch) return SendError(res, 400, "Invalid credentials");
 
-        const today = moment().startOf("day");
-        const lastLogin = user.lastLoginDate ? moment(user.lastLoginDate).startOf("day") : null;
-        //TODO: Need to uncomment this code
-        // if (!lastLogin || !today.isSame(lastLogin)) {
-        //     // First login of the day requires office location
-        //     if (lat == null || lng == null) {
-        //         return SendError(res, 400, "Current location required for first login today");
-        //     }
-
-        //     // const office = await officeLocationModel.findOne({
-        //     //     location: {
-        //     //         $nearSphere: {
-        //     //             $geometry: {
-        //     //                 type: "Point",
-        //     //                 coordinates: [lng, lat],
-        //     //             },
-        //     //             $maxDistance: 50,
-        //     //         },
-        //     //     },
-        //     // });
-
-        //     // if (!office) {
-        //     //     return SendError(res, 403, "You must be inside office for today's first login");
-        //     // }
-
-        //     user.lastLoginDate = new Date();
-        //     await user.save();
-        // }
-        const loginTime = new Date();
-        const payload = {
-            user: {
-                _id: user._id,
-                name: user.name,
-                email: user.email,
+        const office = await officeLocationModel.findOne({
+            location: {
+                $nearSphere: {
+                    $geometry: {
+                        type: "Point",
+                        coordinates: [lng, lat],
+                    },
+                    $maxDistance: 50,
+                },
             },
-            token: generateToken({ _id: user._id, email: user.email }),
-            loginTime
+        });
+
+        if (!user.allowedFromOutSideOffice) {
+            if (!office) {
+                return SendError(res, 403, "You must be inside office for  login (location check failed)");
+            }
+            if (office.wifiIp?.trim() !== clientIp.trim()) {
+                return SendError(res, 403, "You must be inside office for login (IP check failed)");
+            }
+        }
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const attendance = await Attendance.findOneAndUpdate(
+            { userId: user._id, date: today },
+            {
+                $push: {
+                    sessions: {
+                        loginTime: new Date(),
+                        officeWifiIP: clientIp,
+                        location: {
+                            type: "Point",
+                            coordinates: [lng, lat]
+                        }
+                    }
+                }
+            },
+            {
+                upsert: true,
+                new: true,
+                setDefaultsOnInsert: true
+            }
+        );
+
+        const payload = {
+            token: generateToken({ _id: user._id, email: user.email, role: user.role }),
+            attendance
         };
 
         return SendSuccess(res, payload, "Login successful");
@@ -103,7 +81,7 @@ exports.getDataById = async (req, res, next) => {
     try {
         const { _id } = req.user;
         const userData = await User.findById(_id);
-        if(!userData) {
+        if (!userData) {
             return SendError(res, 400, "User Not Found");
         }
         userData.password = undefined;
@@ -112,3 +90,37 @@ exports.getDataById = async (req, res, next) => {
         return next(error);
     }
 };
+
+exports.logout = async (req, res, next) => {
+    try {
+        const { _id } = req.user;
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const attendance = await Attendance.findOne({ userId: _id, date: today });
+
+        if (!attendance || !attendance.sessions.length) {
+            return SendError(res, 404, "No login record found for today");
+        }
+
+        const sessions = attendance.sessions;
+        const lastIndex = sessions.length - 1;
+        const lastSession = sessions[lastIndex];
+
+        // Ensure only the last session is allowed to be logged out
+        if (lastSession.logoutTime) {
+            return SendError(res, 400, "session already logged out");
+        }
+
+        lastSession.logoutTime = new Date();
+
+        await attendance.save();
+
+        return SendSuccess(res, attendance, "Logout successful");
+
+    } catch (error) {
+        next(error);
+    }
+};
+

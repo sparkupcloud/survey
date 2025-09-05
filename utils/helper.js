@@ -1,16 +1,27 @@
 const jwt = require("jsonwebtoken");
 const path = require("path");
+const User = require("../models/user.model");
 const crypto = require("crypto");
 const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
 const multer = require("multer");
 const upload = multer({ storage: multer.memoryStorage() });
 
 const generateToken = (user) => {
-    return jwt.sign(
-        { _id: user._id, email: user.email },
+    return jwt.sign({
+            _id: user._id,
+            email: user.email,
+            role: user.role
+        },
         process.env.JWT_SECRET,
-        { expiresIn: "1d" }
+        { expiresIn: "12h" }
     );
+};
+
+const generateEmployeeId = async () => {
+    const totalUsers = await User.countDocuments();
+    const year = new Date().getFullYear();
+    const idNumber = (totalUsers + 1).toString().padStart(2, '0');
+    return `EMP${idNumber}`;
 };
 
 const s3 = new S3Client({
@@ -74,5 +85,6 @@ module.exports = {
     upload,
     generateToken,
     uploadImageToS3,
-    uploadProfile
+    uploadProfile,
+    generateEmployeeId
 };

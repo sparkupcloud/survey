@@ -157,6 +157,7 @@ exports.addShopVisit = async (req, res, next) => {
 
 exports.getTodayVisit = async (req, res, next) => {
     try {
+        console.log("ip", req.ip);
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
@@ -177,7 +178,7 @@ exports.getTodayVisit = async (req, res, next) => {
             })
             .lean();
 
-        if(!dailyReport.length) {
+        if (!dailyReport.length) {
             return SendError(res, 400, "No Visit Found For Today");
         }
 
@@ -194,29 +195,34 @@ exports.addShopService = async (req, res, next) => {
         const {
             shopId,
             providerName,
-            serviceProvided,
-            commissionCharge,
+            services,
             notProvided,
             expectedService,
             feedback,
             volume
         } = req.body;
 
-        if (!shopId || !providerName || !serviceProvided || !commissionCharge) {
-            return SendError(res, 400, "All required fields are not provided.");
+        if (!shopId || !providerName || !services || !Array.isArray(services) || services.length === 0) {
+            return SendError(res, 400, "Required fields missing or invalid: shopId, providerName, services");
         }
 
-        let shop = await Shop.findById(shopId);
+        const hasInvalidService = services.some(s =>
+            !s.serviceName || typeof s.serviceName !== 'string' ||
+            !s.charge || isNaN(parseFloat(s.charge))
+        );
+        if (hasInvalidService) {
+            return SendError(res, 400, "Each service must have a valid serviceName and charge");
+        }
 
+        const shop = await Shop.findById(shopId);
         if (!shop) {
-            return SendError(res, 404, "Shop not found.");
+            return SendError(res, 404, "Shop not found");
         }
 
         const newService = new ShopService({
             shop: shopId,
             providerName,
-            serviceProvided,
-            commissionCharge,
+            services,
             notProvided,
             expectedService,
             feedback,
@@ -224,10 +230,10 @@ exports.addShopService = async (req, res, next) => {
         });
 
         await newService.save();
+
         return SendSuccess(res, newService, "Service added successfully.");
     } catch (error) {
-        console.log('err: ', error);
-        // next(err);
-        return SendError(res, 500, error.message)
+        console.error("addShopService error:", error);
+        return SendError(res, 500, error.message);
     }
 };

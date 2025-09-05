@@ -9,6 +9,11 @@ const UserSchema = new mongoose.Schema({
         lowercase: true,
         trim: true,
     },
+    employeeId: {
+        type: String,
+        unique: true,
+        required: true
+    },
     name: {
         type: String,
         required: true,
@@ -28,10 +33,15 @@ const UserSchema = new mongoose.Schema({
         type: String,
         required: true
     },
-    lastLoginDate: {
-        type: Date,
-        default: null,
+    allowedFromOutSideOffice: {
+        type: Boolean,
+        default: false
     },
+    role: {
+        type: String,
+        enum: ["Administration", "Employee"],
+        required: true
+    }
 }, {
     timestamps: true,
 });

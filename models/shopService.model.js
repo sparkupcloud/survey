@@ -10,17 +10,10 @@ const ShopServiceSchema = new mongoose.Schema({
         type: String,
         required: true
     },
-    serviceProvided: [{
-        type: String
+    services: [{
+        serviceName: { type: String, required: true },
+        charge: { type: mongoose.Schema.Types.Decimal128, required: true }
     }],
-    commissionCharge: {
-        aeps: { type: mongoose.Schema.Types.Decimal128 },
-        dmt: { type: mongoose.Schema.Types.Decimal128 },
-        matm: { type: mongoose.Schema.Types.Decimal128 },
-        busBooking: { type: mongoose.Schema.Types.Decimal128 },
-        flightBooking: { type: mongoose.Schema.Types.Decimal128 },
-        hotelBooking: { type: mongoose.Schema.Types.Decimal128 }
-    },
     notProvided: [{
         type: String
     }],
